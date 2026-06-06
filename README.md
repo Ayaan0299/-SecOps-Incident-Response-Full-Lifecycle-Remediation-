@@ -163,7 +163,8 @@ DeviceLogonEvents
 - Incident notes reviewed and resolution confirmed
 - Incident closed within Sentinel as a **True Positive**
 
-<!-- Add screenshot of closed incident here -->
+<img width="397" height="428" alt="image" src="https://github.com/user-attachments/assets/5dca1b12-a63d-49b0-9f78-44e26ec5e272" />
+
 
 ---
 
