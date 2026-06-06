@@ -9,7 +9,7 @@
 
 # Microsoft Sentinel: Brute Force Detection & Incident Response
 
-> Deployed a scheduled KQL alert rule in Microsoft Sentinel to detect RDP brute force attempts against an Azure VM, triggered the detection, and worked the generated incident to closure following the NIST 800-61 Incident Response Lifecycle.
+> Deployed a scheduled KQL alert rule in Microsoft Sentinel to detect RDP brute force attempts against an Azure VM in an enterprise environment with 1000+ members, triggered the detection, and worked the generated incident to closure following the NIST 800-61 Incident Response Lifecycle.
 
 **Environment:** Microsoft Azure VM · Microsoft Sentinel · Log Analytics Workspace  
 **Detection:** Scheduled Query Rule firing on 10 or more failed logons from the same remote IP within 5 hours  
@@ -35,10 +35,15 @@
 
 ## Lab Architecture
 
-<!-- Add architecture diagram here -->
+<img width="1265" alt="Lab Architecture" src="https://github.com/user-attachments/assets/001e95e8-14d9-4e1c-9663-3fc41abdc242" />
 
 ---
-<img width="728" height="389" alt="image" src="https://github.com/user-attachments/assets/0763399b-7c26-46f9-922f-faf1edeff87a" />
+
+## NIST 800-61 Lifecycle
+
+<img width="728" alt="NIST Lifecycle" src="https://github.com/user-attachments/assets/0763399b-7c26-46f9-922f-faf1edeff87a" />
+
+---
 
 ## Part 1: Create Alert Rule
 
@@ -66,7 +71,7 @@ The rule was created in **Sentinel → Analytics → Scheduled Query Rule** with
 - All alerts grouped into a single incident per 24 hours
 - Query stops running after alert is generated
 
-<!-- Add screenshot of rule configuration here -->
+<img width="942" alt="Alert Rule Configuration" src="https://github.com/user-attachments/assets/2e778230-f8cf-4349-993e-f609cbf4fe5d" />
 
 ---
 
@@ -74,9 +79,9 @@ The rule was created in **Sentinel → Analytics → Scheduled Query Rule** with
 
 The rule was triggered by generating enough failed RDP logon attempts against `ayaan-vm-soc` to meet the detection threshold. Once 10 or more failures from the same remote IP were recorded within the 5 hour window, Sentinel fired the alert and automatically created an incident, visible under **Threat Management → Incidents**.
 
-<!-- Add screenshot of triggered alert in Sentinel Incidents view here -->
+The screenshot below shows the generated incident and the assignment to myself (Ayaan Latif).
 
-<!-- Add screenshot of alert details and entity mappings here -->
+<img width="2000" alt="Triggered Incident and Assignment" src="https://github.com/user-attachments/assets/51cbba72-fcd9-4722-9c17-a903f2e0a6df" />
 
 ---
 
@@ -99,7 +104,9 @@ The incident was worked to closure following the NIST 800-61 Incident Response L
 - Incident assigned to Ayaan Latif, status set to Active
 - Investigated via **Actions → Investigate** and observed entity mappings
 - Noted which remote IP addresses triggered the failures and which hosts were targeted
-- Checked whether any of the brute force attempts resulted in a successful logon using the query below
+- Checked whether any of the brute force attempts resulted in a successful logon
+
+**Step 1: Check if any source IP successfully logged in**
 
 ```kql
 let TargetDevice = "ayaan-vm-soc";
@@ -111,23 +118,37 @@ DeviceLogonEvents
 | order by TimeGenerated desc
 ```
 
+**Step 2: Check if the top 3 offending IPs successfully logged in**
+
+```kql
+let RemoteIPsInQuestion = dynamic(["80.66.83.43", "45.238.132.30", "98.70.35.40"]);
+
+DeviceLogonEvents
+| where DeviceName == "ayaan-vm-soc"
+| where LogonType has_any("Network", "Interactive", "RemoteInteractive", "Unlock")
+| where ActionType == "LogonSuccess"
+| where RemoteIP has_any(RemoteIPsInQuestion)
+```
+
 **Findings:** Brute force was not successful. No successful logons from any of the identified source IPs were recorded against `ayaan-vm-soc`.
 
-<!-- Add screenshot of incident investigation and entity mappings here -->
+<img width="981" alt="Investigation Findings" src="https://github.com/user-attachments/assets/8454deeb-50ab-4285-abee-567e463b7ad2" />
 
 ---
 
-### Containment, Eradication and Recovery
+# Containment, Eradication and Recovery
 
-- In a real incident where the threat was serious, the VM would be isolated directly from Microsoft Defender for Endpoint, immediately cutting off all network communication whilst preserving access to the Defender management plane
+- Following this  , the VM is  be isolated directly from Microsoft Defender for Endpoint, immediately cutting off all network communicaion to followed by a antivirus scan 
 - For this lab, the Network Security Group attached to `ayaan-vm-soc` was updated to restrict inbound RDP to my local IP only, blocking all public internet access to port 3389
-- NSG was locked down to prevent further RDP attempts from the public internet
-- No active threat to eradicate as the brute force did not result in a successful logon
+- active threats to be  eradicated if any brute forces had a sucessfull attempt 
 - VM restored to normal operation with hardened NSG in place
 
-<!-- Add screenshot of NSG rule update here -->
+<img width="551" alt="VM Isolation via MDE" src="https://github.com/user-attachments/assets/9cd71980-fa92-4200-93c2-0769da779a36" />
+
+<img width="511" alt="NSG Rule Update" src="https://github.com/user-attachments/assets/32b8100f-db71-48d5-8b10-923bb2d3c0df" />
 
 ---
+
 
 ### Post-Incident Activities
 
@@ -151,7 +172,7 @@ DeviceLogonEvents
 | Area | Detail |
 |---|---|
 | **Detection Engineering** | Scheduled Query Rule in Sentinel targeting repeated logon failures across a rolling time window |
-| **KQL** | `summarize`, `count()`, `ago()`, `where`, `order by`, entity correlation across `DeviceLogonEvents` |
+| **KQL** | `summarize`, `count()`, `ago()`, `where`, `order by`, `has_any`, `dynamic`, entity correlation across `DeviceLogonEvents` |
 | **Incident Response** | Worked incident end to end following all five phases of the NIST 800-61 lifecycle |
 | **SIEM** | Microsoft Sentinel alert configuration, entity mapping, incident management |
 | **Cloud Security** | Azure VM, NSG hardening, Log Analytics Workspace, Defender for Endpoint telemetry |
